@@ -66,7 +66,7 @@ export default function ProfilePage() {
                         ←
                     </button>
                     <div className="navbar__logo">
-                        <div className="navbar__logo-icon">📅</div>
+                        <div className="navbar__logo-icon">GC</div>
                         Profile
                     </div>
                 </div>
@@ -149,9 +149,9 @@ export default function ProfilePage() {
                             <label className="input-label">Theme</label>
                             <div style={{ display: "flex", gap: 8 }}>
                                 {[
-                                    { value: "light", label: "☀️ Light" },
-                                    { value: "dark", label: "🌙 Dark" },
-                                    { value: "system", label: "💻 System" },
+                                    { value: "light", label: "Light" },
+                                    { value: "dark", label: "Dark" },
+                                    { value: "system", label: "System" },
                                 ].map((t) => (
                                     <button
                                         key={t.value}

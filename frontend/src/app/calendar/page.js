@@ -113,9 +113,11 @@ export default function CalendarPage() {
         [weekStart]
     );
 
-    const navigateWeek = (dir) => {
+    const navigate = (dir) => {
         const d = new Date(currentDate);
-        d.setDate(d.getDate() + dir * 7);
+        if (viewMode === "week") d.setDate(d.getDate() + dir * 7);
+        else if (viewMode === "month") d.setMonth(d.getMonth() + dir);
+        else d.setDate(d.getDate() + dir);
         setCurrentDate(d);
     };
 
@@ -146,6 +148,7 @@ export default function CalendarPage() {
             const res = await chatWithAgent({
                 message: msg,
                 user_id: currentUser?.user_id,
+                group_id: groups[0]?.group_id || null,
             });
             setChatMessages((m) => [
                 ...m,
@@ -172,7 +175,7 @@ export default function CalendarPage() {
         setTheme(next);
     };
 
-    const themeIcon = theme === "dark" ? "🌙" : theme === "light" ? "☀️" : "💻";
+    const themeLabel = theme === "dark" ? "Dark" : theme === "light" ? "Light" : "Auto";
 
     if (!currentUser) return null;
 
@@ -236,10 +239,10 @@ export default function CalendarPage() {
                 <nav className="navbar">
                     <div className="navbar__left">
                         <button className="navbar__hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            ☰
+                            ≡
                         </button>
                         <div className="navbar__logo">
-                            <div className="navbar__logo-icon">📅</div>
+                            <div className="navbar__logo-icon">GC</div>
                             Group Calendar
                         </div>
                     </div>
@@ -248,10 +251,10 @@ export default function CalendarPage() {
                         <button className="navbar__today-btn" onClick={goToday}>
                             Today
                         </button>
-                        <button className="navbar__nav-btn" onClick={() => navigateWeek(-1)}>
+                        <button className="navbar__nav-btn" onClick={() => navigate(-1)}>
                             ‹
                         </button>
-                        <button className="navbar__nav-btn" onClick={() => navigateWeek(1)}>
+                        <button className="navbar__nav-btn" onClick={() => navigate(1)}>
                             ›
                         </button>
                         <span className="navbar__date-label">{dateLabel}</span>
@@ -270,14 +273,14 @@ export default function CalendarPage() {
 
                     <div className="navbar__right">
                         <button className="navbar__theme-btn" onClick={cycleTheme} title={`Theme: ${theme}`}>
-                            {themeIcon}
+                            {themeLabel}
                         </button>
                         <button
                             className="navbar__theme-btn"
                             onClick={() => setChatOpen(!chatOpen)}
                             title="Toggle AI Chat"
                         >
-                            💬
+                            Chat
                         </button>
                         <button
                             className="navbar__avatar"
@@ -294,26 +297,55 @@ export default function CalendarPage() {
 
                 {/* Calendar Grid */}
                 <div className="calendar-area">
-                    <WeekView
-                        weekDays={weekDays}
-                        events={events}
-                        groupColor={groupColor}
-                        onEventClick={(evt) => setSelectedEvent(evt)}
-                        onSlotClick={(date, hour) => {
-                            const d = new Date(date);
-                            d.setHours(hour, 0, 0, 0);
-                            setEventModalDate(d);
-                            setSelectedEvent(null);
-                            setShowEventModal(true);
-                        }}
-                    />
+                    {viewMode === "week" && (
+                        <WeekView
+                            weekDays={weekDays}
+                            events={events}
+                            groupColor={groupColor}
+                            onEventClick={(evt) => setSelectedEvent(evt)}
+                            onSlotClick={(date, hour) => {
+                                const d = new Date(date);
+                                d.setHours(hour, 0, 0, 0);
+                                setEventModalDate(d);
+                                setSelectedEvent(null);
+                                setShowEventModal(true);
+                            }}
+                        />
+                    )}
+                    {viewMode === "month" && (
+                        <MonthView
+                            currentDate={currentDate}
+                            events={events}
+                            groupColor={groupColor}
+                            onEventClick={(evt) => setSelectedEvent(evt)}
+                            onDateClick={(date) => {
+                                setCurrentDate(date);
+                                setViewMode("day");
+                            }}
+                        />
+                    )}
+                    {viewMode === "day" && (
+                        <DayView
+                            date={currentDate}
+                            events={events}
+                            groupColor={groupColor}
+                            onEventClick={(evt) => setSelectedEvent(evt)}
+                            onSlotClick={(hour) => {
+                                const d = new Date(currentDate);
+                                d.setHours(hour, 0, 0, 0);
+                                setEventModalDate(d);
+                                setSelectedEvent(null);
+                                setShowEventModal(true);
+                            }}
+                        />
+                    )}
                 </div>
             </div>
 
             {/* ── RIGHT SIDEBAR (chat) ── */}
             <aside className={`sidebar-right ${chatOpen ? "" : "collapsed"}`}>
                 <div className="sidebar-right__header">
-                    <h3>🤖 AI Assistant</h3>
+                    <h3>AI Assistant</h3>
                     <button className="btn-ghost btn-icon" onClick={() => setChatOpen(false)}>
                         ×
                     </button>
@@ -609,7 +641,148 @@ function PhotoBanner() {
     return (
         <div className="photo-banner">
             <div className="photo-banner__overlay" />
-            <button className="photo-banner__edit">📷 Edit Photos</button>
+            <button className="photo-banner__edit">Edit Photos</button>
+        </div>
+    );
+}
+
+/* ════════════════════════════════
+   MONTH VIEW
+   ════════════════════════════════ */
+function MonthView({ currentDate, events, groupColor, onEventClick, onDateClick }) {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrev = new Date(year, month, 0).getDate();
+    const today = new Date();
+
+    const cells = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+        cells.push({ date: new Date(year, month - 1, daysInPrev - i), otherMonth: true });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+        cells.push({ date: new Date(year, month, i), otherMonth: false });
+    }
+    while (cells.length % 7 !== 0) {
+        cells.push({ date: new Date(year, month + 1, cells.length - firstDay - daysInMonth + 1), otherMonth: true });
+    }
+
+    const getEventsForDay = (day) =>
+        events.filter((evt) => {
+            if (evt.status === "Cancelled") return false;
+            const s = new Date(evt.start_time_utc);
+            return isSameDay(s, day);
+        });
+
+    return (
+        <div className="month-view">
+            <div className="month-view__header">
+                {DAY_NAMES.map((d) => (
+                    <div key={d} className="month-view__day-header">{d}</div>
+                ))}
+            </div>
+            <div className="month-view__grid">
+                {cells.map(({ date, otherMonth }, i) => {
+                    const dayEvents = getEventsForDay(date);
+                    const isToday = isSameDay(date, today);
+                    return (
+                        <div
+                            key={i}
+                            className={`month-view__cell ${otherMonth ? "other-month" : ""}`}
+                            onClick={() => onDateClick(date)}
+                        >
+                            <span className={`month-view__date ${isToday ? "today" : ""}`}>
+                                {date.getDate()}
+                            </span>
+                            <div className="month-view__events">
+                                {dayEvents.slice(0, 3).map((evt) => (
+                                    <div
+                                        key={evt.event_id}
+                                        className="month-view__event-chip"
+                                        style={{ background: groupColor(evt.group_id) }}
+                                        onClick={(e) => { e.stopPropagation(); onEventClick(evt); }}
+                                    >
+                                        {evt.title}
+                                    </div>
+                                ))}
+                                {dayEvents.length > 3 && (
+                                    <div className="month-view__more">
+                                        +{dayEvents.length - 3} more
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+/* ════════════════════════════════
+   DAY VIEW
+   ════════════════════════════════ */
+function DayView({ date, events, groupColor, onEventClick, onSlotClick }) {
+    const today = new Date();
+    const now = new Date();
+    const isToday = isSameDay(date, today);
+
+    const dayEvents = events.filter((evt) => {
+        if (evt.status === "Cancelled") return false;
+        const s = new Date(evt.start_time_utc);
+        return isSameDay(s, date);
+    });
+
+    return (
+        <div className="day-view">
+            <div className="day-view__header">
+                <span className="day-view__day-name">{DAY_NAMES[date.getDay()]}</span>
+                <span className={`day-view__day-number ${isToday ? "today" : ""}`}>
+                    {date.getDate()}
+                </span>
+            </div>
+            <div className="day-view__body">
+                <div className="day-view__gutter">
+                    {HOURS.map((h) => (
+                        <div key={h} className="day-view__time-label">{formatHour(h)}</div>
+                    ))}
+                </div>
+                <div className="day-view__column">
+                    {HOURS.map((h) => (
+                        <div
+                            key={h}
+                            className="day-view__hour-slot"
+                            onClick={() => onSlotClick(h)}
+                        />
+                    ))}
+                    {isToday && (
+                        <div
+                            className="now-line"
+                            style={{ top: `${(now.getHours() - 6) * 60 + now.getMinutes()}px` }}
+                        />
+                    )}
+                    {dayEvents.map((evt) => {
+                        const start = new Date(evt.start_time_utc);
+                        const end = new Date(evt.end_time_utc);
+                        const topPx = (start.getHours() - 6) * 60 + start.getMinutes();
+                        const heightPx = Math.max(24, (end - start) / (1000 * 60));
+                        return (
+                            <div
+                                key={evt.event_id}
+                                className="day-view__event"
+                                style={{ top: `${topPx}px`, height: `${heightPx}px`, background: groupColor(evt.group_id) }}
+                                onClick={(e) => { e.stopPropagation(); onEventClick(evt); }}
+                            >
+                                <div className="week-view__event-title">{evt.title}</div>
+                                <div className="week-view__event-time">
+                                    {formatTime(start)} – {formatTime(end)}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 }
@@ -739,15 +912,15 @@ function EventDetailModal({ event, currentUser, groups, groupColor, onClose, onU
 
                 <div className="event-detail__meta">
                     <div className="event-detail__meta-row">
-                        <span className="event-detail__meta-icon">🕐</span>
+                        <span className="event-detail__meta-icon">Time</span>
                         {start.toLocaleDateString()} · {formatTime(start)} – {formatTime(end)}
                     </div>
                     <div className="event-detail__meta-row">
-                        <span className="event-detail__meta-icon">👥</span>
+                        <span className="event-detail__meta-icon">Group</span>
                         {group?.name || "Unknown group"}
                     </div>
                     <div className="event-detail__meta-row">
-                        <span className="event-detail__meta-icon">📋</span>
+                        <span className="event-detail__meta-icon">Type</span>
                         <span className={`badge ${event.constraint_level === "Hard" ? "badge-hard" : "badge-soft"}`}>
                             {event.constraint_level}
                         </span>
@@ -788,7 +961,7 @@ function EventDetailModal({ event, currentUser, groups, groupColor, onClose, onU
                         {event.attendees.map((a) => (
                             <div key={a.user_id} className="event-detail__attendee">
                                 <span className="event-detail__attendee-name">
-                                    {a.user_id === event.organizer_id ? "👑 " : ""}
+                                    {a.user_id === event.organizer_id ? "(organizer) " : ""}
                                     {a.display_name || a.user_id.slice(0, 8)}
                                 </span>
                                 <span className={`badge badge-${a.rsvp_status}`}>{a.rsvp_status}</span>

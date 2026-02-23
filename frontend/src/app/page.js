@@ -40,8 +40,8 @@ export default function LandingPage() {
   return (
     <div className="landing">
       <div className="landing__card">
-        <div className="navbar__logo-icon" style={{ width: 48, height: 48, fontSize: 22, margin: "0 auto 16px", borderRadius: 12 }}>
-          📅
+        <div className="navbar__logo-icon" style={{ width: 48, height: 48, fontSize: 18, margin: "0 auto 16px", borderRadius: 12 }}>
+          GC
         </div>
         <h1 className="landing__title">Group Calendar</h1>
         <p className="landing__subtitle">
