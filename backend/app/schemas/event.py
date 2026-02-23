@@ -1,23 +1,22 @@
 """Pydantic schemas for Events."""
 from __future__ import annotations
 from datetime import datetime
-from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel
 
 
 class EventCreate(BaseModel):
-    group_id: UUID
+    group_id: str
     title: str
     start_time_utc: datetime
     end_time_utc: datetime
-    organizer_id: UUID
+    organizer_id: str
     status: str = "Proposed"
     constraint_level: str = "Soft"
     event_type: str = "default"
     location_type: Optional[str] = None
     location_text: Optional[str] = None
-    attendee_ids: list[UUID] = []
+    attendee_ids: list[str] = []
 
 
 class EventUpdate(BaseModel):
@@ -33,19 +32,19 @@ class EventUpdate(BaseModel):
 
 
 class EventOut(BaseModel):
-    event_id: UUID
-    group_id: UUID
+    event_id: str
+    group_id: str
     title: str
     start_time_utc: datetime
     end_time_utc: datetime
-    organizer_id: UUID
+    organizer_id: str
     status: str
     constraint_level: str
     event_type: str
     location_type: Optional[str] = None
     location_text: Optional[str] = None
     cancelled_at: Optional[datetime] = None
-    cancelled_by_user_id: Optional[UUID] = None
+    cancelled_by_user_id: Optional[str] = None
     cancel_reason: Optional[str] = None
     version: int
     created_at: datetime
@@ -56,7 +55,7 @@ class EventOut(BaseModel):
 
 
 class AttendeeOut(BaseModel):
-    user_id: UUID
+    user_id: str
     rsvp_status: str
     is_required: bool
     responded_at: Optional[datetime] = None
@@ -65,7 +64,7 @@ class AttendeeOut(BaseModel):
 
 
 class EventCancelRequest(BaseModel):
-    cancelled_by_user_id: UUID
+    cancelled_by_user_id: str
     cancel_reason: Optional[str] = None
     version: int  # required for optimistic locking
 

@@ -1,6 +1,5 @@
 """Event API routes — delegates to event_service for invariant enforcement."""
 import logging
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -37,7 +36,7 @@ def create_event(payload: EventCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=list[EventOut])
 def list_events(
-    group_id: Optional[UUID] = Query(None),
+    group_id: Optional[str] = Query(None),
     start_after: Optional[datetime] = Query(None),
     start_before: Optional[datetime] = Query(None),
     include_cancelled: bool = Query(False),
@@ -57,7 +56,7 @@ def list_events(
 
 
 @router.get("/{event_id}", response_model=EventOut)
-def get_event(event_id: UUID, db: Session = Depends(get_db)):
+def get_event(event_id: str, db: Session = Depends(get_db)):
     """Fetch a single event by ID with attendees."""
     event = db.query(Event).filter(Event.event_id == event_id).first()
     if not event:
@@ -67,9 +66,9 @@ def get_event(event_id: UUID, db: Session = Depends(get_db)):
 
 @router.put("/{event_id}", response_model=EventOut)
 def update_event(
-    event_id: UUID,
+    event_id: str,
     payload: EventUpdate,
-    actor_user_id: UUID = Query(..., description="ID of the user performing the update"),
+    actor_user_id: str = Query(..., description="ID of the user performing the update"),
     db: Session = Depends(get_db),
 ):
     """Update an event (organizer only, optimistic locking enforced)."""
@@ -84,7 +83,7 @@ def update_event(
 
 
 @router.post("/{event_id}/cancel", response_model=EventOut)
-def cancel_event(event_id: UUID, payload: EventCancelRequest, db: Session = Depends(get_db)):
+def cancel_event(event_id: str, payload: EventCancelRequest, db: Session = Depends(get_db)):
     """Cancel an event (soft delete, organizer only, optimistic locking enforced)."""
     return event_service.cancel_event(
         db=db,

@@ -1,20 +1,19 @@
 """Pydantic schemas for Groups."""
 from __future__ import annotations
 from datetime import datetime
-from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel
 
 
 class GroupCreate(BaseModel):
     name: str
-    created_by: UUID
+    created_by: str
 
 
 class GroupOut(BaseModel):
-    group_id: UUID
+    group_id: str
     name: str
-    created_by: UUID
+    created_by: str
     created_at: datetime
     members: list[GroupMemberOut] = []
 
@@ -22,12 +21,12 @@ class GroupOut(BaseModel):
 
 
 class GroupMemberAdd(BaseModel):
-    user_id: UUID
+    user_id: str
     role: str = "member"
 
 
 class GroupMemberOut(BaseModel):
-    user_id: UUID
+    user_id: str
     role: str
     joined_at: datetime
 

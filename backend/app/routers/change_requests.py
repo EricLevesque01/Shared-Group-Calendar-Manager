@@ -1,6 +1,5 @@
 """ChangeRequest API routes — HITL workflow per spec §10."""
 import logging
-from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,7 +40,7 @@ def create_change_request(payload: ChangeRequestCreate, db: Session = Depends(ge
 
 @router.get("/", response_model=list[ChangeRequestOut])
 def list_change_requests(
-    event_id: UUID | None = None,
+    event_id: str | None = None,
     status_filter: str | None = None,
     db: Session = Depends(get_db),
 ):
@@ -55,7 +54,7 @@ def list_change_requests(
 
 
 @router.post("/{request_id}/approve", response_model=ChangeRequestOut)
-def approve_change_request(request_id: UUID, db: Session = Depends(get_db)):
+def approve_change_request(request_id: str, db: Session = Depends(get_db)):
     """Approve a pending change request — applies the mutation via event_service.
 
     Per spec §10: organizer approves → apply mutation → write EventMutation entry.
@@ -97,7 +96,7 @@ def approve_change_request(request_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.post("/{request_id}/reject", response_model=ChangeRequestOut)
-def reject_change_request(request_id: UUID, db: Session = Depends(get_db)):
+def reject_change_request(request_id: str, db: Session = Depends(get_db)):
     """Reject a pending change request."""
     cr = db.query(ChangeRequest).filter(ChangeRequest.request_id == request_id).first()
     if not cr:

@@ -1,7 +1,6 @@
 """Pydantic schemas for Users."""
 from __future__ import annotations
 from datetime import datetime, time
-from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel
 
@@ -25,7 +24,7 @@ class UserUpdate(BaseModel):
 
 
 class UserOut(BaseModel):
-    user_id: UUID
+    user_id: str
     display_name: str
     default_timezone: str
     dnd_window_start_local: Optional[time] = None

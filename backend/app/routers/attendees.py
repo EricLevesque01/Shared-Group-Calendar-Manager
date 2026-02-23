@@ -1,6 +1,5 @@
 """Attendee / RSVP API routes."""
 import logging
-from uuid import UUID
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -15,8 +14,8 @@ router = APIRouter()
 
 
 class RSVPPayload(BaseModel):
-    event_id: UUID
-    user_id: UUID
+    event_id: str
+    user_id: str
     rsvp_status: str  # going, maybe, declined
 
 

@@ -39,9 +39,9 @@ def _event_snapshot(event: Event) -> dict[str, Any]:
     }
 
 
-def _check_authorization(event: Event, actor_user_id: uuid.UUID) -> None:
+def _check_authorization(event: Event, actor_user_id: str) -> None:
     """§7.1 — Only organizer may update/cancel/confirm."""
-    if event.organizer_id != actor_user_id:
+    if str(event.organizer_id) != str(actor_user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the organizer may modify this event. Create a ChangeRequest instead.",
@@ -50,7 +50,7 @@ def _check_authorization(event: Event, actor_user_id: uuid.UUID) -> None:
 
 def _check_dnd_conflict(
     db: Session,
-    user_ids: list[uuid.UUID],
+    user_ids: list[str],
     start_utc: datetime,
     end_utc: datetime,
 ) -> list[dict]:
@@ -95,10 +95,10 @@ def _times_overlap(start1, end1, start2, end2) -> bool:
 
 def _check_hard_constraints(
     db: Session,
-    user_ids: list[uuid.UUID],
+    user_ids: list[str],
     start_utc: datetime,
     end_utc: datetime,
-    exclude_event_id: Optional[uuid.UUID] = None,
+    exclude_event_id: Optional[str] = None,
 ) -> list[dict]:
     """§7.3 — Hard events cannot overlap other Hard events or DND windows."""
     conflicts = []
@@ -127,12 +127,12 @@ def _check_hard_constraints(
 
 def create_event(
     db: Session,
-    group_id: uuid.UUID,
+    group_id: str,
     title: str,
     start_utc: datetime,
     end_utc: datetime,
-    organizer_id: uuid.UUID,
-    attendee_ids: list[uuid.UUID],
+    organizer_id: str,
+    attendee_ids: list[str],
     constraint_level: str = "Soft",
     event_type: str = "default",
     event_status: str = "Proposed",
@@ -204,8 +204,8 @@ def create_event(
 
 def update_event(
     db: Session,
-    event_id: uuid.UUID,
-    actor_user_id: uuid.UUID,
+    event_id: str,
+    actor_user_id: str,
     version: int,
     updates: dict[str, Any],
 ) -> Event:
@@ -253,8 +253,8 @@ def update_event(
 
 def cancel_event(
     db: Session,
-    event_id: uuid.UUID,
-    actor_user_id: uuid.UUID,
+    event_id: str,
+    actor_user_id: str,
     version: int,
     cancel_reason: Optional[str] = None,
 ) -> Event:

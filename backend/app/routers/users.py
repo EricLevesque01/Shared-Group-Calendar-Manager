@@ -1,6 +1,5 @@
 """User API routes."""
 import logging
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -30,7 +29,7 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}", response_model=UserOut)
-def get_user(user_id: UUID, db: Session = Depends(get_db)):
+def get_user(user_id: str, db: Session = Depends(get_db)):
     """Fetch a single user by ID."""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
@@ -39,7 +38,7 @@ def get_user(user_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)):
     """Update user preferences (partial update)."""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
