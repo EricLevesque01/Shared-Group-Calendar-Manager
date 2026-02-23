@@ -1,7 +1,6 @@
 """User ORM model — spec §5.1 + §16 Auth."""
 import uuid
 from sqlalchemy import Column, String, Time, Boolean, DateTime, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -9,7 +8,7 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     display_name = Column(String(100), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False, default="")
     default_timezone = Column(String(50), nullable=False, default="UTC")  # IANA tz

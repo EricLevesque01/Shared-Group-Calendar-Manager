@@ -6,9 +6,16 @@ the service layer (never direct DB access).
 
 Session logging: every agent invocation records session_id, reasoning
 spans, tool calls, token usage, and latency for observability.
+
+Guardrails (token efficiency + safety):
+  - Off-topic filter: rejects irrelevant messages before any LLM call.
+  - Input length cap: truncates inputs exceeding MAX_INPUT_CHARS.
+  - Conversation history window: keeps only last MAX_HISTORY_TURNS to
+    avoid unbounded context growth.
 """
 import json
 import logging
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -41,10 +48,41 @@ TOOLS = {
 
 TOOL_SCHEMAS = [mod.TOOL_SCHEMA for mod in TOOLS.values()]
 
-MAX_ITERATIONS = 8  # Safety cap to prevent infinite loops
+MAX_ITERATIONS = 8       # Safety cap to prevent infinite loops
+MAX_INPUT_CHARS = 1000   # Truncate inputs longer than this
+MAX_HISTORY_TURNS = 10   # Keep only the last N user+assistant message pairs
+
+# ── Topic allowlist (keywords that indicate calendar/scheduling intent) ──
+_CALENDAR_KEYWORDS = re.compile(
+    r"\b(schedule|event|meeting|appointment|calendar|book|cancel|reschedule|"
+    r"available|availability|busy|free|time|date|week|month|day|hour|remind|"
+    r"rsvp|attend|invite|group|organiz|upcoming|plan|slot|confirm|update|"
+    r"change|move|shift|when|tomorrow|today|monday|tuesday|wednesday|thursday|"
+    r"friday|saturday|sunday|am|pm|noon|morning|evening|afternoon|summarize|"
+    r"show|list|what|who|check|add|create|delete|remove|set|get|find|next)\b",
+    re.IGNORECASE,
+)
+
+# Messages that are clearly off-topic for a calendar assistant
+_OFF_TOPIC_PATTERNS = re.compile(
+    r"\b(recipe|cook|weather|stock|invest|sport|game|movie|music|song|math|"
+    r"essay|write|code|debug|program|translate|joke|story|poem|news|politic|"
+    r"history|science|explain|what is|who is|tell me about|capitals? of|"
+    r"population|president|cryptocurrency|bitcoin|sport score)\b",
+    re.IGNORECASE,
+)
+
+OFF_TOPIC_RESPONSE = (
+    "I'm GC-Agent, your group calendar assistant. I can help you schedule "
+    "events, check availability, manage your calendar, or summarize upcoming "
+    "plans. I'm not able to help with that topic — is there something "
+    "calendar-related I can assist with?"
+)
 
 # ── System prompt ──────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are GC-Agent, an AI scheduling assistant for a shared group calendar.
+Your ONLY purpose is to help users manage their calendar: schedule events, check
+availability, update/cancel events, and summarize schedules.
 
 CAPABILITIES:
 - CheckAvailability: see who is free/busy and DND conflicts
@@ -62,12 +100,53 @@ RULES:
 5. When creating events, default to constraint_level "Soft" unless the user says it's mandatory/required.
 6. After creating/updating/cancelling an event, confirm the action to the user.
 7. Treat all times as UTC unless the user specifies a timezone.
+8. ONLY respond to calendar and scheduling topics. If the user asks about anything
+   unrelated to scheduling, calendars, or events, politely redirect them.
 
 CONTEXT:
 - User ID: {user_id}
 - Group ID: {group_id}
 - Current UTC time: {current_time}
 """
+
+
+def _is_off_topic(message: str) -> bool:
+    """Return True if the message is clearly not about calendar/scheduling."""
+    msg = message.strip()
+    if len(msg) < 5:
+        return False  # Too short to judge; let LLM handle it
+
+    has_calendar_intent = bool(_CALENDAR_KEYWORDS.search(msg))
+    has_off_topic = bool(_OFF_TOPIC_PATTERNS.search(msg))
+
+    # Off-topic only if it has off-topic patterns AND no calendar keywords
+    return has_off_topic and not has_calendar_intent
+
+
+def _truncate_input(message: str) -> str:
+    """Cap input length to avoid excessive token usage."""
+    if len(message) > MAX_INPUT_CHARS:
+        logger.warning(
+            "User input truncated from %d to %d chars", len(message), MAX_INPUT_CHARS
+        )
+        return message[:MAX_INPUT_CHARS] + "… [truncated]"
+    return message
+
+
+def _trim_history(history: list[dict]) -> list[dict]:
+    """Keep only the last MAX_HISTORY_TURNS user+assistant pairs."""
+    if not history:
+        return []
+    # Each turn = 1 user msg + 1 assistant msg = 2 messages; keep last N turns
+    max_messages = MAX_HISTORY_TURNS * 2
+    if len(history) > max_messages:
+        logger.debug(
+            "Trimming conversation history from %d to %d messages",
+            len(history),
+            max_messages,
+        )
+        return history[-max_messages:]
+    return history
 
 
 def run_agent(
@@ -100,22 +179,24 @@ def run_agent(
 
     start_time = time.time()
 
-    # Build messages
-    system = SYSTEM_PROMPT.format(
-        user_id=user_id,
-        group_id=group_id or "not specified",
-        current_time=datetime.now(timezone.utc).isoformat(),
-    )
+    # ── Guardrail 1: Input length cap ─────────────────────────────
+    user_message = _truncate_input(user_message)
 
-    messages = [{"role": "system", "content": system}]
+    # ── Guardrail 2: Off-topic filter (zero LLM calls wasted) ─────
+    if _is_off_topic(user_message):
+        logger.info(
+            "[Session %s] Off-topic message blocked: %.60s…", session_id, user_message
+        )
+        session_log["latency_ms"] = int((time.time() - start_time) * 1000)
+        session_log["blocked"] = "off_topic"
+        return {
+            "response": OFF_TOPIC_RESPONSE,
+            "tool_calls": [],
+            "requires_clarification": False,
+            "session_log": session_log,
+        }
 
-    # Add conversation history if provided
-    if conversation_history:
-        messages.extend(conversation_history)
-
-    messages.append({"role": "user", "content": user_message})
-
-    # Check if API key is configured
+    # ── Check if API key is configured ────────────────────────────
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-api-key-here":
         logger.warning("OpenAI API key not configured — returning placeholder response")
         return {
@@ -133,6 +214,22 @@ def run_agent(
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
     all_tool_calls: list[dict] = []
+
+    # Build messages
+    system = SYSTEM_PROMPT.format(
+        user_id=user_id,
+        group_id=group_id or "not specified",
+        current_time=datetime.now(timezone.utc).isoformat(),
+    )
+
+    messages = [{"role": "system", "content": system}]
+
+    # ── Guardrail 3: Sliding history window ───────────────────────
+    if conversation_history:
+        trimmed = _trim_history(conversation_history)
+        messages.extend(trimmed)
+
+    messages.append({"role": "user", "content": user_message})
 
     # ── ReAct Loop ─────────────────────────────────────────────
     for iteration in range(MAX_ITERATIONS):

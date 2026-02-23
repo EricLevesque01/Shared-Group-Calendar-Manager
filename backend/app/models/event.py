@@ -2,7 +2,6 @@
 import uuid
 import enum
 from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -33,19 +32,19 @@ class LocationType(str, enum.Enum):
 class Event(Base):
     __tablename__ = "events"
 
-    event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.group_id"), nullable=False)
+    event_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    group_id = Column(String(36), ForeignKey("groups.group_id"), nullable=False)
     title = Column(String(255), nullable=False)
     start_time_utc = Column(DateTime(timezone=True), nullable=False)
     end_time_utc = Column(DateTime(timezone=True), nullable=False)
-    organizer_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    organizer_id = Column(String(36), ForeignKey("users.user_id"), nullable=False)
     status = Column(SAEnum(EventStatus), nullable=False, default=EventStatus.proposed)
     constraint_level = Column(SAEnum(ConstraintLevel), nullable=False, default=ConstraintLevel.soft)
     event_type = Column(SAEnum(EventType), nullable=False, default=EventType.default)
     location_type = Column(SAEnum(LocationType), nullable=True)
     location_text = Column(String(500), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
-    cancelled_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True)
+    cancelled_by_user_id = Column(String(36), ForeignKey("users.user_id"), nullable=True)
     cancel_reason = Column(String(500), nullable=True)
     version = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

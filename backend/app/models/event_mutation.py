@@ -2,7 +2,6 @@
 import uuid
 import enum
 from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -16,9 +15,9 @@ class ActionType(str, enum.Enum):
 class EventMutation(Base):
     __tablename__ = "event_mutations"
 
-    mutation_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    event_id = Column(UUID(as_uuid=True), ForeignKey("events.event_id"), nullable=False)
-    actor_user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    mutation_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(String(36), ForeignKey("events.event_id"), nullable=False)
+    actor_user_id = Column(String(36), ForeignKey("users.user_id"), nullable=False)
     action_type = Column(SAEnum(ActionType), nullable=False)
     before_snapshot = Column(JSON, nullable=True)
     after_snapshot = Column(JSON, nullable=False)
