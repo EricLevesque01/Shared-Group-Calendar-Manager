@@ -3,7 +3,6 @@
 Returns busy blocks, DND conflicts, and constraint flags for users
 in a given time range.  Agent uses this to avoid proposing conflicting slots.
 """
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -18,7 +17,7 @@ TOOL_SCHEMA = {
         "description": (
             "Check the availability of one or more users in a time range. "
             "Returns busy blocks (existing events), DND window conflicts, "
-            "and constraint flags. Always call this BEFORE creating or updating events."
+            "and constraint flags. Call this BEFORE creating or updating events when needed."
         ),
         "parameters": {
             "type": "object",
@@ -45,7 +44,7 @@ TOOL_SCHEMA = {
 
 def execute(db: Session, args: dict[str, Any]) -> dict[str, Any]:
     """Run the availability check and return structured results."""
-    user_ids = [uuid.UUID(uid) for uid in args["user_ids"]]
+    user_ids = args["user_ids"]  # plain strings — no UUID wrapping needed
     range_start = datetime.fromisoformat(args["range_start_utc"].replace("Z", "+00:00"))
     range_end = datetime.fromisoformat(args["range_end_utc"].replace("Z", "+00:00"))
 

@@ -21,6 +21,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from app.models.user import User
+
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
@@ -90,22 +92,29 @@ CAPABILITIES:
 - UpdateEvent: change an existing event (title, time, etc.)
 - CancelEvent: soft-cancel an event
 - SummarizeSchedule: list upcoming events
-- ClarifyWithUser: ask the user a clarifying question
+- ClarifyWithUser: ask the user a clarifying question (use SPARINGLY)
 
 RULES:
-1. ALWAYS check availability BEFORE creating or updating events.
+1. Check availability BEFORE creating or updating events only if the user asks to.
+   For simple "schedule X at Y time" requests, skip the availability check and
+   create the event directly — the backend will reject conflicts automatically.
 2. Never perform timezone math yourself — the backend handles UTC↔local.
-3. If you lack critical information (date, time, attendees), use ClarifyWithUser.
-4. Keep responses concise and friendly.
-5. When creating events, default to constraint_level "Soft" unless the user says it's mandatory/required.
-6. After creating/updating/cancelling an event, confirm the action to the user.
-7. Treat all times as UTC unless the user specifies a timezone.
-8. ONLY respond to calendar and scheduling topics. If the user asks about anything
-   unrelated to scheduling, calendars, or events, politely redirect them.
+3. DEFAULT BEHAVIOURS — do NOT ask the user for these unless they provide different info:
+   a. attendees: default to [{user_id}] (just the current user)
+   b. timezone: default to "{user_timezone}" for any natural-language times
+   c. constraint_level: default to "Soft"
+   d. event_type: default to "default"
+4. ONLY use ClarifyWithUser when date OR time is genuinely missing or ambiguous.
+   Do NOT ask for attendees, timezone, or constraint level — use the defaults above.
+5. Keep responses concise and friendly.
+6. After creating/updating/cancelling an event, confirm in plain language with the
+   local time in {user_timezone} (e.g. "✅ Team standup scheduled for Wed Feb 25 at 9:00 AM").
+7. ONLY respond to calendar and scheduling topics.
 
 CONTEXT:
-- User ID: {user_id}
+- User: {user_display_name} (ID: {user_id})
 - Group ID: {group_id}
+- User timezone: {user_timezone}
 - Current UTC time: {current_time}
 """
 
@@ -215,9 +224,16 @@ def run_agent(
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
     all_tool_calls: list[dict] = []
 
+    # Look up user to get timezone + display name for prompt context
+    user_record = db.query(User).filter(User.user_id == user_id).first()
+    user_timezone = user_record.default_timezone if user_record else "UTC"
+    user_display_name = user_record.display_name if user_record else user_id
+
     # Build messages
     system = SYSTEM_PROMPT.format(
         user_id=user_id,
+        user_display_name=user_display_name,
+        user_timezone=user_timezone,
         group_id=group_id or "not specified",
         current_time=datetime.now(timezone.utc).isoformat(),
     )

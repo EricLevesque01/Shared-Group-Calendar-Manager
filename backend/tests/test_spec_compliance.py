@@ -61,7 +61,7 @@ class TestMutationLedger:
         resp, event = _create_event_via_api(client, org["user_id"], group["group_id"], title="Dinner")
         assert resp.status_code == 201
 
-        eid = _uuid.UUID(event["event_id"])
+        eid = event["event_id"]  # plain string — DB uses String(36)
         mutations = db.query(EventMutation).filter(
             EventMutation.event_id == eid
         ).all()
@@ -83,7 +83,7 @@ class TestMutationLedger:
             json={"title": "After", "version": 1},
         )
 
-        eid = _uuid.UUID(event["event_id"])
+        eid = event["event_id"]  # plain string — DB uses String(36)
         mutations = db.query(EventMutation).filter(
             EventMutation.event_id == eid
         ).order_by(EventMutation.created_at).all()
@@ -105,7 +105,7 @@ class TestMutationLedger:
             "version": 1,
         })
 
-        eid = _uuid.UUID(event["event_id"])
+        eid = event["event_id"]  # plain string — DB uses String(36)
         mutations = db.query(EventMutation).filter(
             EventMutation.event_id == eid
         ).order_by(EventMutation.created_at).all()
@@ -126,7 +126,7 @@ class TestMutationLedger:
             json={"title": "Updated", "version": 1},
         )
 
-        eid = _uuid.UUID(event["event_id"])
+        eid = event["event_id"]  # plain string — DB uses String(36)
         mutations = db.query(EventMutation).filter(
             EventMutation.event_id == eid
         ).all()

@@ -2,7 +2,6 @@
 
 Creates a new event via the event_service (which enforces all invariants).
 """
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -45,17 +44,17 @@ TOOL_SCHEMA = {
                 "attendee_ids": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of attendee user UUIDs.",
+                    "description": "List of attendee user UUIDs (defaults to just the organizer).",
                 },
                 "constraint_level": {
                     "type": "string",
                     "enum": ["Hard", "Soft"],
-                    "description": "Hard = cannot overlap other Hard or DND. Soft = may overlap.",
+                    "description": "Hard = cannot overlap other Hard or DND. Soft = may overlap. Default: Soft.",
                 },
                 "event_type": {
                     "type": "string",
                     "enum": ["default", "outOfOffice", "focusTime"],
-                    "description": "Type of event.",
+                    "description": "Type of event. Default: default.",
                 },
             },
             "required": ["group_id", "title", "start_time_utc", "end_time_utc", "organizer_id"],
@@ -68,12 +67,12 @@ def execute(db: Session, args: dict[str, Any]) -> dict[str, Any]:
     """Create the event and return a summary dict."""
     event = create_event(
         db=db,
-        group_id=uuid.UUID(args["group_id"]),
+        group_id=args["group_id"],
         title=args["title"],
         start_utc=datetime.fromisoformat(args["start_time_utc"].replace("Z", "+00:00")),
         end_utc=datetime.fromisoformat(args["end_time_utc"].replace("Z", "+00:00")),
-        organizer_id=uuid.UUID(args["organizer_id"]),
-        attendee_ids=[uuid.UUID(uid) for uid in args.get("attendee_ids", [])],
+        organizer_id=args["organizer_id"],
+        attendee_ids=args.get("attendee_ids", []),
         constraint_level=args.get("constraint_level", "Soft"),
         event_type=args.get("event_type", "default"),
     )

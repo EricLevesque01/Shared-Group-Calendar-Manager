@@ -2,14 +2,12 @@
 
 Read-only schedule summary for a user or group over a date range.
 """
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 from app.models.event import Event, EventStatus
 from app.models.attendee import EventAttendee
-from app.models.group import Group
 
 
 TOOL_SCHEMA = {
@@ -65,11 +63,12 @@ def execute(db: Session, args: dict[str, Any]) -> dict[str, Any]:
         Event.end_time_utc > range_start,
     )
 
+    # Filter by user or group — use plain strings, no UUID wrapping
     if args.get("user_id"):
-        uid = uuid.UUID(args["user_id"])
+        uid = args["user_id"]
         query = query.join(EventAttendee).filter(EventAttendee.user_id == uid)
     elif args.get("group_id"):
-        gid = uuid.UUID(args["group_id"])
+        gid = args["group_id"]
         query = query.filter(Event.group_id == gid)
 
     events = query.order_by(Event.start_time_utc).all()

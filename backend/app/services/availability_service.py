@@ -1,6 +1,5 @@
 """Availability service — spec §6.1 CheckAvailability backend logic."""
 import logging
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def check_availability(
     db: Session,
-    user_ids: list[uuid.UUID],
+    user_ids: list[str],
     range_start_utc: datetime,
     range_end_utc: datetime,
 ) -> dict[str, Any]:
@@ -30,7 +29,7 @@ def check_availability(
     result: dict[str, Any] = {
         "busy_blocks": [],
         "dnd_conflicts": [],
-        "users_checked": [str(uid) for uid in user_ids],
+        "users_checked": list(user_ids),
     }
 
     for uid in user_ids:
@@ -53,7 +52,7 @@ def check_availability(
 
         for ev in events:
             result["busy_blocks"].append({
-                "user_id": str(uid),
+                "user_id": uid,
                 "display_name": user.display_name,
                 "event_id": str(ev.event_id),
                 "title": ev.title,
@@ -72,7 +71,7 @@ def check_availability(
 
             if _times_overlap(local_start, local_end, dnd_start, dnd_end):
                 result["dnd_conflicts"].append({
-                    "user_id": str(uid),
+                    "user_id": uid,
                     "display_name": user.display_name,
                     "dnd_window": f"{dnd_start.isoformat()}-{dnd_end.isoformat()}",
                     "timezone": user.default_timezone,

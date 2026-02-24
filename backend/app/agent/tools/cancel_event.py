@@ -2,7 +2,6 @@
 
 Soft-cancels an event via event_service (auth + optimistic lock).
 """
-import uuid
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -48,8 +47,8 @@ def execute(db: Session, args: dict[str, Any]) -> dict[str, Any]:
     """Cancel the event and return confirmation."""
     event = cancel_event(
         db=db,
-        event_id=uuid.UUID(args["event_id"]),
-        actor_user_id=uuid.UUID(args["actor_user_id"]),
+        event_id=args["event_id"],
+        actor_user_id=args["actor_user_id"],
         version=args["version"],
         cancel_reason=args.get("cancel_reason"),
     )

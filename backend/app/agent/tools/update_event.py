@@ -2,7 +2,6 @@
 
 Updates an existing event via event_service (optimistic locking + auth).
 """
-import uuid
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -47,8 +46,8 @@ def execute(db: Session, args: dict[str, Any]) -> dict[str, Any]:
     """Update the event and return updated snapshot."""
     event = update_event(
         db=db,
-        event_id=uuid.UUID(args["event_id"]),
-        actor_user_id=uuid.UUID(args["actor_user_id"]),
+        event_id=args["event_id"],
+        actor_user_id=args["actor_user_id"],
         version=args["version"],
         updates=args["updates"],
     )
